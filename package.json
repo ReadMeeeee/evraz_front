@@ -1,0 +1,12 @@
+{
+  "name": "evraz_front",
+  "version": "1.0.0",
+  "description": "frontend for our evraz project",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
