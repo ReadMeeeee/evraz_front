@@ -1,5 +1,5 @@
 # Используем официальный базовый образ Node.js
-FROM node:18-slim
+FROM --platform=linux/amd64 node:18-slim
 
 # Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
