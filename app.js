@@ -8,7 +8,7 @@ const path = require("path");                // Корректная работ�
 const crypto = require("crypto");            // Создание уникального идентификатора
 
 const app = express();
-const PORT = 28563;
+const PORT = 8080;
 
 const upload = multer({ dest: "uploads/" });
 
