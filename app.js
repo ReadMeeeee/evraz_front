@@ -1,25 +1,23 @@
-// Перед запуском установить следующие зависимости:
-// sudo apt update               (или dnf вместо apt)
-// sudo apt install nodejs npm   (или dnf вместо apt)
-// npm install express multer axios form-data
-// Проверка:
-// npm init -y
-// Запуск:
-// node app.js
-
 const express = require("express");          // Создание веб-сервера
-const multer = require("multer");  // Обработка загрузки файлов
-const axios = require("axios");                            // Отправка HTTP-запросов
-const fs = require("fs");                                 // Работа с файловой системой
-const FormData = require("form-data");                         // Работа с данными формами
+const multer = require("multer");            // Обработка загрузки файлов
+const axios = require("axios");              // Отправка HTTP-запросов
+const fs = require("fs");                    // Работа с файловой системой
+const FormData = require("form-data");       // Работа с данными форм
 
-const path = require("path"); // Корректная работа с фс
-const crypto = require("crypto");        // Создание уникального идентификатора
+const path = require("path");                // Корректная работа с путями
+const crypto = require("crypto");            // Создание уникального идентификатора
 
 const app = express();
 const PORT = 28563;
 
 const upload = multer({ dest: "uploads/" });
+
+// Глобальные параметры axios
+const axiosConfig = {
+    headers: {
+        "Content-Type": "multipart/form-data",
+    },
+};
 
 // HTML страницы
 app.get("/", (req, res) => {
@@ -33,7 +31,7 @@ app.get("/", (req, res) => {
         </head>
         <body>
             <h1>Upload a .zip File</h1>
-            <form action="/upload" method="POST" enctype="multipart/form-data">
+            <form action="/send" method="POST" enctype="multipart/form-data">
                 <input type="file" name="file" accept=".zip" required>
                 <button type="submit">Upload</button>
             </form>
@@ -42,72 +40,73 @@ app.get("/", (req, res) => {
     `);
 });
 
-// Обработка загрузки и передачи данных
-//TODO уточнить за проверку размеров архива
-app.post("/upload", upload.single("file"),
-    async (req, res) => {
-    //TODO написть Мише, протестировать на сервере
-    const backendServerUrl = "http://localhost:28563/upload"; // Адрес бэкенд сервера
-    const uploadedFilePath = req.file?.path;                         // Путь к загруженному файлу
+app.post("/send", upload.single("file"), async (req, res) => {
+    const targetServerUrl = "https://bba8pjurs296duc29tsm.containers.yandexcloud.net/zip"; // Адрес бэкенд сервера
+    const uploadedFilePath = req.file?.path; // Путь к загруженному файлу
 
     if (!uploadedFilePath) {
         return res.status(400).send("No file uploaded.");
     }
 
-    const uniqueFileName = `${crypto.randomUUID()}.txt`;                        // Уникальное имя, чтобы
-    const correctionFilePath = path.join(__dirname, "uploads", uniqueFileName); // не ошибиться из-за асинхр.
-    // Папка с временными файлами создается в той же директории, что и app.js
+    const uniqueFileName = `${crypto.randomUUID()}.zip`;
+    const renamedFilePath = path.join(__dirname, "uploads", uniqueFileName);
 
     try {
         console.log(`File received: ${req.file.originalname}`);
         console.log("Uploaded file path:", uploadedFilePath);
 
+        // Проверка размера файла
+        const fileStats = fs.statSync(uploadedFilePath);
+        if (fileStats.size === 0) {
+            console.error("Uploaded file is empty.");
+            return res.status(400).send("Uploaded file is empty.");
+        }
+        console.log(`Uploaded file size: ${fileStats.size} bytes`);
+
+        // Переименовываем файл
+        fs.renameSync(uploadedFilePath, renamedFilePath);
+
+        // Проверка содержимого файла (файл = .zip)
+        const fileBuffer = fs.readFileSync(renamedFilePath);
+        if (!fileBuffer.slice(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) {
+            console.error("Uploaded file is not a valid .zip archive.");
+            return res.status(400).send("Uploaded file is not a valid .zip archive.");
+        }
+
         // Формируем данные для отправки
         const formData = new FormData();
-        formData.append("file", fs.createReadStream(uploadedFilePath), req.file.originalname);
+        // Отправляем файл с полем 'some'
+        formData.append("some", fs.createReadStream(renamedFilePath), uniqueFileName);
 
-        // Отправляем архив на бэкенд сервер
-        const response = await axios.post(backendServerUrl, formData, {
-            headers: formData.getHeaders(),
+        // Отправка файла
+        const response = await axios.post(targetServerUrl, formData, {
+            ...axiosConfig,  // Включаем кфг axios
+            headers: {
+                ...axiosConfig.headers,        // Заголовки по умолчанию
+                ...formData.getHeaders(),      // Заголовки для формы
+            },
         });
 
-        console.log("File successfully sent. Receiving corrections...");
+        console.log("File successfully sent. Response from target server:", response.data);
 
-        //TODO получение ответа от бэкенда:
-        // 1. тип файла?
-        // 2. займется ли бэкенд отправкой файла ответа уже по уникальному ключу?
-        //    (по уже существующему названию архива)
-        //    (или в архиве может быть много файлов?)
-
-        // Сохраняем данные из ответа сервера в файл
-        fs.writeFileSync(correctionFilePath, response.data);
-
-        // Отправляем клиенту файл с корректировками
-        res.download(correctionFilePath, uniqueFileName, (err) => {
-            if (err) {
-                console.error("Error sending correction file:", err);
-            }
-
-            // Удаляем файл с корректировками после отправки
-            fs.unlink(correctionFilePath, (err) => {
-                if (err) console.error("Error deleting correction file:", err);
-            });
-        });
+        res.status(200).send("File sent successfully!");
     } catch (error) {
-        console.error("Error processing the file:", error.message);
-        res.status(500).send("An error occurred while processing the file.");
+        console.error("Error sending the file:", error.message);
+        if (error.response) {
+            console.error("Error response data:", error.response.data);
+            console.error("Error response status:", error.response.status);
+        }
+        res.status(500).send("An error occurred while sending the file.");
     } finally {
-        // Удаляем временный загруженный файл
-        fs.unlink(uploadedFilePath, (err) => {
+        // Удаляем временный переименованный файл
+        fs.unlink(renamedFilePath, (err) => {
             if (err) console.error("Error deleting temp file:", err);
         });
     }
 });
 
+
 // Запуск
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
-// При тестировании на одном устройстве получаем рекурсию.
-// Андрей, не убей ноут. Используй докер, или проверяй онли дизайн =)
