@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload a .zip or .ру file</title>
+    <style>
+        /* Импорт шрифтов */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        /* Основные стили страницы */
+        body {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url('/images/bg.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center center;
+            font-family: 'Roboto', Arial, sans-serif;
+            color: white;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Стилизация контейнера формы */
+        .container {
+            background-color: rgba(0, 0, 0, 0.6); /* Полупрозрачный фон */
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+            width: 90%;
+            max-width: 900px;
+            text-align: center;
+        }
+
+        /* Заголовок */
+        h1 {
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        /* Стили формы */
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Скрытый файл-инпут */
+        #file-upload {
+            display: none;
+        }
+
+        /* Общие стили для кнопок */
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 25px;
+            margin: 10px;
+            background-color: #773bc1; /* Непрозрачный цвет */
+            border: none;               /* Без границы */
+            border-radius: 5px;         /* Скруглённые углы */
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            text-decoration: none;      /* Убираем подчеркивание */
+        }
+
+        /* Ховер эффекты для кнопок */
+        .button:hover {
+            background-color: #1E90FF; /* Голубой цвет при наведении */
+            transform: scale(1.2);      /* Увеличение на 1.2 раза при наведении */
+            border-radius: 5px;         /* Сохраняем скруглённые углы */
+        }
+
+        /* Специфичные стили для кнопки "Upload" */
+        .upload-btn {
+            margin-top: 20px;
+        }
+
+        /* Добавление стилей для Drop Zone */
+        .drop-zone {
+            border: 2px dashed #773bc1;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            color: #a548ec;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+            cursor: pointer;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .drop-zone.dragover {
+            background-color: rgba(119, 59, 193, 0.1);
+            border-color: #1E90FF;
+            color: #1E90FF;
+        }
+
+        .drop-zone p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+        }
+
+        /* Стилизация отображения имени файла */
+        #file-name {
+            display: block;
+            margin-top: 10px;
+            color: #00FF00;
+            font-weight: bold;
+            font-size: 16px;
+        }
+    </style>
+    <!-- Подключение Font Awesome для иконок -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-pEmYhDTKUdw+4pFLq2gR3pMHFvP5PXl5Z8ffraE7xIuvIuOyU3+KOnrDAl/ncY1ux1/Xh3p3Kf+gnTnJ0BJhAw==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="container">
+        <h1>Upload .zip/.py/.cs/.ts file</h1>
+        <form action="/send" method="POST" enctype="multipart/form-data">
+            <!-- Drop Zone -->
+            <div class="drop-zone" id="drop-zone">
+                <i class="fas fa-file-upload fa-3x"></i>
+                <p>Drag and drop files here or click "Choose File"</p>
+                <!-- Кнопка "Choose File" -->
+                <button type="button" class="button" id="choose-file-btn">
+                    <i class="fas fa-file-upload"></i> Choose File
+                </button>
+                <!-- Скрытый файл-инпут -->
+                <input type="file" id="file-upload" name="file" accept=".zip,.ру" onchange="updateFileName()" required>
+            </div>
+            <!-- Отображение выбранного файла -->
+            <span id="file-name"></span>
+            <!-- Кнопка "Upload" -->
+            <button type="submit" class="button upload-btn">Upload</button>
+        </form>
+    </div>
+
+    <script>
+        // Функция для обновления отображения имени файла
+        function updateFileName() {
+            const input = document.getElementById('file-upload');
+            const fileName = document.getElementById('file-name');
+            if (input.files.length > 0) {
+                fileName.textContent = input.files[0].name;
+                fileName.style.color = '#00FF00';
+            } else {
+                fileName.textContent = 'Файл не выбран';
+                fileName.style.color = '#000';
+            }
+        }
+
+        // Обработка клика на кнопку "Choose File"
+        document.getElementById('choose-file-btn').addEventListener('click', function() {
+            document.getElementById('file-upload').click();
+        });
+
+        // Получение элементов Drop Zone и File Input
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-upload');
+
+        // Предотвращение стандартных действий при перетаскивании файлов
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Добавление классов при перетаскивании файлов над Drop Zone
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        // Обработка события drop
+        dropZone.addEventListener('drop', (e) => {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateFileName();
+            }
+        });
+    </script>
+</body>
+</html>
